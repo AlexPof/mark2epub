@@ -1,4 +1,4 @@
-## Chapter 4
+## Chapter 3
 
 It is possible to include images. 
 You can either include html directly:

@@ -30,19 +30,21 @@ They are processed by name order, and will appear correspondingly in the e-book.
   files are currently supported. This folder is *not* processed recursively, so
   all images should be placed at the root of this folder.
 
-* A `css` folder, containing the CSS files. In the current version of mark2epub,
- the CSS files will be applied to *all* chapters (no individual styling of
-   chapters). This folder is *not* processed recursively, so all css files
-   should be placed at the root of this folder.
+* A `css` folder, containing the CSS files. This folder is *not* processed
+   recursively, so all css files should be placed at the root of this folder.
 
-* A `description.json` containing meta-information about the e-book. In
- particular, the key `cover_image` should indicate the name of the cover image.
+* A `description.json` containing meta-information about the e-book. The key
+  `cover_image` should indicate the name of the cover image.
+  The key `default_css` is a list of css file names that are applied by default
+  on all chapters.
+  The key `chapters` is a list of dictionaries, each one containing a key `markdown`
+  indicating the name of the corresponding markdown file, and a key `css` indicating
+  the name of the css file that should be applied specifically to this chapter.
+  See the example in the repository for a typical `description.json` file.
 
 ## Limitations/Features to be addressed
 
 * Robustness checks in the `mark2epub.py` script
-* Individual styling of chapters
-* Order of Markdown files to be defined in `description.json`
 * Recursive processing of the `images` and `css` folders
 * Support for additional fonts
 * Support for mathematical notation

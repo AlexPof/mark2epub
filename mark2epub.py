@@ -146,6 +146,87 @@ def get_packageOPF_XML(md_filenames=[],image_filenames=[],css_filenames=[],descr
     return doc.toprettyxml()
  
 
+def get_container_XML():
+    container_data = """<?xml version="1.0" encoding="UTF-8" ?>\n"""
+    container_data += """<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">\n"""
+    container_data += """<rootfiles>\n"""
+    container_data += """<rootfile full-path="OPS/package.opf" media-type="application/oebps-package+xml"/>\n"""
+    container_data += """</rootfiles>\n</container>"""
+    
+    return container_data
+
+
+def get_coverpage_XML(cover_image_path):
+    ## Returns the XML data for the coverpage.xhtml file
+
+    all_xhtml = """<?xml version="1.0" encoding="utf-8"?>\n"""
+    all_xhtml += """<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="fr">\n"""
+    all_xhtml += """<head>\n</head>\n<body>\n"""
+    all_xhtml += """<img src="images/{}" style="height:100%;max-width:100%;"/>\n""".format(cover_image_path)
+    all_xhtml += """</body>\n</html>"""
+    
+    return all_xhtml
+    
+def get_TOC_XML(default_css_filenames,markdown_filenames):
+    ## Returns the XML data for the TOC.xhtml file
+
+    toc_xhtml = """<?xml version="1.0" encoding="UTF-8"?>\n"""
+    toc_xhtml += """<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="en">\n"""
+    toc_xhtml += """<head>\n<meta http-equiv="default-style" content="text/html; charset=utf-8"/>\n"""
+    toc_xhtml += """<title>Contents</title>\n"""
+
+    for css_filename in default_css_filenames:
+        toc_xhtml += """<link rel="stylesheet" href="css/{}" type="text/css"/>\n""".format(css_filename)
+
+    toc_xhtml += """</head>\n<body>\n"""
+    toc_xhtml += """<nav epub:type="toc" role="doc-toc" id="toc">\n<h2>Contents</h2>\n<ol epub:type="list">"""
+    for i,md_filename in enumerate(markdown_filenames):
+        toc_xhtml += """<li><a href="s{:05d}-{}.xhtml">{}</a></li>""".format(i,md_filename.split(".")[0],md_filename.split(".")[0])
+    toc_xhtml += """</ol>\n</nav>\n</body>\n</html>"""
+    
+    return toc_xhtml
+    
+def get_TOCNCX_XML(markdown_filenames):
+    ## Returns the XML data for the TOC.ncx file
+    
+    toc_ncx = """<?xml version="1.0" encoding="UTF-8"?>\n"""
+    toc_ncx += """<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" xml:lang="fr" version="2005-1">\n"""
+    toc_ncx += """<head>\n</head>\n"""
+    toc_ncx += """<navMap>\n"""
+    for i,md_filename in enumerate(markdown_filenames):
+        toc_ncx += """<navPoint id="navpoint-{}">\n""".format(i)
+        toc_ncx += """<navLabel>\n<text>{}</text>\n</navLabel>""".format(md_filename.split(".")[0])
+        toc_ncx += """<content src="s{:05d}-{}.xhtml"/>""".format(i,md_filename.split(".")[0])
+        toc_ncx += """ </navPoint>"""
+    toc_ncx += """</navMap>\n</ncx>"""
+    
+    return toc_ncx
+    
+def get_chapter_XML(md_filename,css_filenames):
+    ## Returns the XML data for a given markdown chapter file, with the corresponding css chapter files
+
+    with open(os.path.join(work_dir,md_filename),"r",encoding="utf-8") as f:
+        markdown_data = f.read()
+    html_text = markdown.markdown(markdown_data,
+                                  extensions=["codehilite","tables","fenced_code"],
+                                  extension_configs={"codehilite":{"guess_lang":False}}
+                                  ) 
+
+    all_xhtml = """<?xml version="1.0" encoding="UTF-8"?>\n"""
+    all_xhtml += """<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="en">\n"""
+    all_xhtml += """<head>\n<meta http-equiv="default-style" content="text/html; charset=utf-8"/>\n"""
+
+    
+    for css_filename in css_filenames:
+        all_xhtml += """<link rel="stylesheet" href="css/{}" type="text/css"/>\n""".format(css_filename)
+    
+    all_xhtml += """</head>\n<body>\n"""
+
+    all_xhtml += html_text
+    all_xhtml += """\n</body>\n</html>"""
+    
+    return all_xhtml
+
 if __name__ == "__main__":
     if len(sys.argv[1:])<2:
         print("\nUsage:\n    python md2epub.py <markdown_directory> <output_file.epub>")
@@ -158,19 +239,31 @@ if __name__ == "__main__":
     images_dir = os.path.join(work_dir,r'images/')
     css_dir = os.path.join(work_dir,r'css/')
 
-    all_md_filenames = get_all_filenames(work_dir,extensions=["md"])
-    all_image_filenames = get_all_filenames(images_dir,extensions=["gif","jpg","jpeg","png"])
-    all_css_filenames = get_all_filenames(css_dir,extensions=["css"])
+    ## Reading the JSON file containing the description of the eBook
+    ## and compiling the list of relevant Markdown, CSS, and image files
+
     with open(os.path.join(work_dir,"description.json"),"r") as f:
         json_data = json.load(f)
-
+        
+    all_md_filenames=[]
+    all_css_filenames=json_data["default_css"][:]
+    for chapter in json_data["chapters"]:
+        if not chapter["markdown"] in all_md_filenames:
+            all_md_filenames.append(chapter["markdown"])
+        if len(chapter["css"]) and (not chapter["css"] in all_css_filenames):
+            all_css_filenames.append(chapter["css"])
+    all_image_filenames = get_all_filenames(images_dir,extensions=["gif","jpg","jpeg","png"])
+ 
+    ######################################################
+    ## Now creating the ePUB book
+ 
     with zipfile.ZipFile(output_path, "w" ) as myZipFile:
 
         ## First, write the mimetype
         myZipFile.writestr("mimetype","application/epub+zip", zipfile.ZIP_DEFLATED )
 
         ## Then, the file container.xml which just points to package.opf
-        container_data = """<?xml version="1.0" encoding="UTF-8" ?>\n<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">\n<rootfiles>\n<rootfile full-path="OPS/package.opf" media-type="application/oebps-package+xml"/>\n</rootfiles>\n</container>"""
+        container_data = get_container_XML()
         myZipFile.writestr("META-INF/container.xml",container_data, zipfile.ZIP_DEFLATED )
 
         ## Then, the package.opf file itself
@@ -182,71 +275,30 @@ if __name__ == "__main__":
         myZipFile.writestr("OPS/package.opf",package_data, zipfile.ZIP_DEFLATED)
         
         ## First, we create the cover page
-        all_xhtml = """<?xml version="1.0" encoding="utf-8"?>\n"""
-        all_xhtml += """<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="fr">\n"""
-        all_xhtml += """<head>\n</head>\n<body>\n"""
-        all_xhtml += """<img src="images/{}" style="height:100%;max-width:100%;"/>\n""".format(json_data["cover_image"])
-        all_xhtml += """</body>\n</html>"""
-        myZipFile.writestr("OPS/titlepage.xhtml",all_xhtml.encode('utf-8'),zipfile.ZIP_DEFLATED)
-
+        coverpage_data = get_coverpage_XML(json_data["cover_image"])
+        myZipFile.writestr("OPS/titlepage.xhtml",coverpage_data.encode('utf-8'),zipfile.ZIP_DEFLATED)
 
         ## Now, we are going to convert the Markdown files to xhtml files
-        for i,md_filename in enumerate(all_md_filenames):
-            with open(os.path.join(work_dir,md_filename),"r",encoding="utf-8") as f:
-                markdown_data = f.read()
-            html_text = markdown.markdown(markdown_data,
-                                          extensions=["codehilite","tables","fenced_code"],
-                                          extension_configs={"codehilite":{"guess_lang":False}}
-                                          ) 
-
-            all_xhtml = """<?xml version="1.0" encoding="UTF-8"?>\n"""
-            all_xhtml += """<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="en">\n"""
-            all_xhtml += """<head>\n<meta http-equiv="default-style" content="text/html; charset=utf-8"/>\n"""
-
-            for j,css_filename in enumerate(all_css_filenames):
-                all_xhtml += """<link rel="stylesheet" href="css/{}" type="text/css"/>\n""".format(css_filename)
-
-            all_xhtml += """</head>\n<body>\n"""
-
-            all_xhtml += html_text
-            all_xhtml += """\n</body>\n</html>"""
-            myZipFile.writestr("OPS/s{:05d}-{}.xhtml".format(i,md_filename.split(".")[0]),
-                               all_xhtml.encode('utf-8'),
+        for i,chapter in enumerate(json_data["chapters"]):
+            chapter_md_filename = chapter["markdown"]
+            chapter_css_filenames = json_data["default_css"][:]
+            if len(chapter["css"]):
+                chapter_css_filenames.append(chapter["css"])
+                
+            chapter_data = get_chapter_XML(chapter_md_filename,chapter_css_filenames)
+            myZipFile.writestr("OPS/s{:05d}-{}.xhtml".format(i,chapter_md_filename.split(".")[0]),
+                               chapter_data.encode('utf-8'),
                                zipfile.ZIP_DEFLATED)
+            
         
         ## Writing the TOC.xhtml file
-        
-        toc_xhtml = """<?xml version="1.0" encoding="UTF-8"?>\n"""
-        toc_xhtml += """<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="en">\n"""
-        toc_xhtml += """<head>\n<meta http-equiv="default-style" content="text/html; charset=utf-8"/>\n"""
-        toc_xhtml += """<title>Contents</title>\n"""
-
-        for j,css_filename in enumerate(all_css_filenames):
-            toc_xhtml += """<link rel="stylesheet" href="css/{}" type="text/css"/>\n""".format(css_filename)
-
-        toc_xhtml += """</head>\n<body>\n"""
-        toc_xhtml += """<nav epub:type="toc" role="doc-toc" id="toc">\n<h2>Contents</h2>\n<ol epub:type="list">"""
-        for i,md_filename in enumerate(all_md_filenames):
-            toc_xhtml += """<li><a href="s{:05d}-{}.xhtml">{}</a></li>""".format(i,md_filename.split(".")[0],md_filename.split(".")[0])
-        toc_xhtml += """</ol>\n</nav>\n</body>\n</html>"""
-        myZipFile.writestr("OPS/TOC.xhtml",toc_xhtml.encode('utf-8'),zipfile.ZIP_DEFLATED)
+        toc_xml_data = get_TOC_XML(json_data["default_css"],all_md_filenames)
+        myZipFile.writestr("OPS/TOC.xhtml",toc_xml_data.encode('utf-8'),zipfile.ZIP_DEFLATED)
         
         ## Writing the TOC.ncx file
+        toc_ncx_data = get_TOCNCX_XML(all_md_filenames)       
+        myZipFile.writestr("OPS/toc.ncx",toc_ncx_data.encode('utf-8'),zipfile.ZIP_DEFLATED)
         
-        toc_ncx = """<?xml version="1.0" encoding="UTF-8"?>\n"""
-        toc_ncx += """<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" xml:lang="fr" version="2005-1">\n"""
-        toc_ncx += """<head>\n</head>\n"""
-        toc_ncx += """<navMap>\n"""
-        for i,md_filename in enumerate(all_md_filenames):
-            toc_ncx += """<navPoint id="navpoint-{}">\n""".format(i)
-            toc_ncx += """<navLabel>\n<text>{}</text>\n</navLabel>""".format(md_filename.split(".")[0])
-            toc_ncx += """<content src="s{:05d}-{}.xhtml"/>""".format(i,md_filename.split(".")[0])
-            toc_ncx += """ </navPoint>"""
-        toc_ncx += """</navMap>\n</ncx>"""
-        
-        myZipFile.writestr("OPS/toc.ncx",toc_ncx.encode('utf-8'),zipfile.ZIP_DEFLATED)
-        
-
         ## Copy image files
         for i,image_filename in enumerate(all_image_filenames):
             with open(os.path.join(images_dir,image_filename),"rb") as f:
@@ -263,4 +315,4 @@ if __name__ == "__main__":
                                filedata,
                                zipfile.ZIP_DEFLATED)
 
-        myZipFile.close()
+    print("eBook creation complete")

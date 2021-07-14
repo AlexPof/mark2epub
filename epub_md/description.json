@@ -13,5 +13,12 @@
     "dc:description":"",
     "dc:subject":""
     },
-"cover_image":"cover.jpg"
+"cover_image":"cover.jpg",
+"default_css":["code_styles.css","general.css"],
+"chapters":[
+            {"markdown":"chapter1.md","css":""},
+            {"markdown":"chapter2.md","css":""},
+            {"markdown":"chapter3.md","css":""},
+            {"markdown":"chapter4.md","css":"specific.css"}
+        ]
 }
