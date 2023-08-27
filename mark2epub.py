@@ -45,13 +45,16 @@ def get_packageOPF_XML(md_filenames=[],image_filenames=[],css_filenames=[],descr
 
     metadata = doc.createElement('metadata')
     metadata.setAttribute('xmlns:dc', 'http://purl.org/dc/elements/1.1/')
-    '''
+    
     for k,v in description_data["metadata"].items():
-        x = doc.createElement(k)
-        x.setAttribute('id',"title")
-        x.appendChild(doc.createTextNode(v))
-        metadata.appendChild(x)
-    '''
+        if len(v):
+            x = doc.createElement(k)
+            for metadata_type,id_label in [("dc:title","title"),("dc:creator","creator"),("dc:identifier","book-id")]:
+                if k==metadata_type:
+                    x.setAttribute('id',id_label)
+            x.appendChild(doc.createTextNode(v))
+            metadata.appendChild(x)
+    
 
     ## Now building the manifest
 

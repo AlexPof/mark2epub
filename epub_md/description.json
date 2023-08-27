@@ -1,12 +1,12 @@
 {
 "metadata":{
-    "dc:title":"",
-    "dc:creator":"",
-    "dc:language":"",
-    "dc:identifier":"",
+    "dc:title":"Mark2Epub Sample",
+    "dc:creator":"Mark2Epub",
+    "dc:language":"en-US",
+    "dc:identifier":"mark2epub-sample",
     "dc:source":"",
     "meta":"",
-    "dc:date":"",
+    "dc:date":"2023-01-01",
     "dc:publisher":"",
     "dc:contributor":"",
     "dc:rights":"",
